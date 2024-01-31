@@ -1,95 +1,98 @@
+'use client'
 import Image from "next/image";
 import styles from "./page.module.css";
+import axios from "axios";
+import { useState, useEffect, useReducer } from 'react';
+import InfiniteScroll from 'react-infinite-scroll-component';
+
+
+
+import 'photoswipe/dist/photoswipe.css'
+
+import { Gallery, Item } from 'react-photoswipe-gallery'
+
+const memeReducer = (state: any, action: any) => {
+  switch (action.type) {
+    case 'ADD_MEMES':
+      return { ...state, memes: [...state.memes, ...action.payload] };
+    case 'SET_HAS_MORE':
+      return { ...state, hasMore: action.payload };
+    case 'CHANGE_AFTER':
+      return { ...state, after: action.payload };
+    default:
+      return state;
+  }
+};
+
+
 
 export default function Home() {
+  const [state, dispatch] = useReducer(memeReducer, {
+    memes: [],
+    hasMore: true,
+    after: "",
+  });
+
+  const fetchMemes = async () => {
+    try {
+      const jsondata = await axios.get(`https://www.reddit.com/r/memes.json?after=${state.after}`);
+      const newMemes = jsondata.data.data.children;
+      console.log(jsondata.data.data.dist);
+      if (jsondata.data.data.dist === 0) {
+        dispatch({ type: 'SET_HAS_MORE', payload: false });
+        return;
+      }
+      dispatch({ type: 'ADD_MEMES', payload: newMemes });
+      dispatch({ type: 'CHANGE_AFTER', payload: jsondata.data.data.after });
+      console.log("hello");
+    } catch (error) {
+      console.error(`error in fetching memes: ${error}`);
+    }
+  }
+
+  useEffect(() => {
+    fetchMemes();
+  }, []); // Initial fetch
+
   return (
     <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
 
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
+      <Gallery>
+        <InfiniteScroll
+          dataLength={state.memes.length}
+          next={fetchMemes}
+          hasMore={state.hasMore}
+          loader={<h4>Loading...</h4>}
         >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
+          {state.memes.map((e: any) => {
+            const isValidUrl = /^https?:\/\//.test(e.data.url);
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
+            return isValidUrl ? (
+              <Item
+                original={e.data.url}
+                thumbnail={e.data.url}
+                width="1024"
+                height="768"
+                key={e.data.name}
+              >
+                {({ ref, open }) => (
+                  <Image
+                    ref={ref}
+                    onClick={open}
+                    src={e.data.url}
+                    alt={e.data.title}
+                    width={400}
+                    height={300}
+                  />
+                )}
+              </Item>
+            ) : (
+              <div key={e.data.id}>Invalid Thumbnail</div>
+            );
+          })}
+        </InfiniteScroll>
+      </Gallery>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
     </main>
   );
 }
